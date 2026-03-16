@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Kumihimo Designer - Pattern</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; padding: 20px; }
+        .container { display: flex; gap: 40px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .controls { display: flex; flex-direction: column; gap: 10px; }
+        .color-row { display: flex; align-items: center; gap: 12px; background: #f8f9fa; padding: 8px; border-radius: 10px; border: 1px solid #ddd; }
+        input[type="color"] { border: none; width: 35px; height: 35px; cursor: pointer; background: none; }
+        canvas { border-radius: 4px; background: #fff; image-rendering: pixelated; border: 1px solid #ccc; }
+        button { margin-top: 20px; padding: 12px; border: none; border-radius: 8px; background: #4A90E2; color: white; cursor: pointer; font-weight: bold; }
+        .library-container { margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px; }
+        .library-title { font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #555; }
+        .library-list { display: grid; grid-template-columns: repeat(5, 32px); gap: 8px; margin-bottom: 15px; }
+        .lib-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 2px solid #fff; transition: transform 0.1s; }
+        .lib-swatch:hover { transform: scale(1.1); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .add-row { display: flex; gap: 10px; align-items: center; }
+        .btn-small { margin-top: 0; padding: 8px 15px; background: #27ae60; flex: 1; }
+        .preview-area { display: flex; gap: 20px; align-items: flex-start; }
+    </style>
+</head>
+<body>
+
+    <h1>Simulateur Kumihimo Exact (7x74)</h1>
+
+    <div class="container">
+        <div class="controls">
+            <div id="inputs-container"></div>
+            <button onclick="setRandomColors()">🎲 Mélanger les fils</button>
+            
+            <div class="library-container">
+                <div class="library-title">Ma Bibliothèque (clic pour supprimer)</div>
+                <div id="library-list" class="library-list"></div>
+                <div class="add-row">
+                    <input type="color" id="newLibColor" value="#FF5733">
+                    <button class="btn-small" onclick="addToLibrary()">+ Ajouter</button>
+                </div>
+            </div>
+        </div>
+        <div class="preview-area">
+            <canvas id="kumihimoCanvas" width="70" height="740"></canvas>
+            <div id="view3d"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('kumihimoCanvas');
+        const ctx = canvas.getContext('2d');
+        const currentColors = Array(7).fill('#FFFFFF');
+        let colorLibrary = JSON.parse(localStorage.getItem('kumihimo_lib')) || [];
+        let scene, camera, renderer, braceletMesh, texture3D, controls;
+
+        // Génération de l'interface pour 7 fils
+        const ui = document.getElementById('inputs-container');
+        for(let i=0; i<7; i++) {
+            ui.innerHTML += `
+                <div class="color-row">
+                    <span>Fil ${i+1}</span>
+                    <input type="color" value="#FFFFFF" id="color${i}" oninput="updateColor(${i})">
+                </div>`;
+        }
+
+        function updateColor(i) {
+            currentColors[i] = document.getElementById(`color${i}`).value;
+            draw();
+        }
+
+        function renderLibrary() {
+            const container = document.getElementById('library-list');
+            container.innerHTML = '';
+            colorLibrary.forEach((col, idx) => {
+                const swatch = document.createElement('div');
+                swatch.className = 'lib-swatch';
+                swatch.style.backgroundColor = col;
+                swatch.title = "Cliquez pour retirer " + col;
+                swatch.onclick = () => {
+                    colorLibrary.splice(idx, 1);
+                    saveLibrary();
+                };
+                container.appendChild(swatch);
+            });
+        }
+
+        function addToLibrary() {
+            const col = document.getElementById('newLibColor').value;
+            if (!colorLibrary.includes(col)) {
+                colorLibrary.push(col);
+                saveLibrary();
+            }
+        }
+
+        function saveLibrary() {
+            localStorage.setItem('kumihimo_lib', JSON.stringify(colorLibrary));
+            renderLibrary();
+        }
+
+        function setRandomColors() {
+            const useLib = colorLibrary.length > 0;
+            for(let i=0; i<7; i++) {
+                let col;
+                if (useLib && colorLibrary.length > 0) {
+                    col = colorLibrary[Math.floor(Math.random() * colorLibrary.length)];
+                } else {
+                    col = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+                }
+                document.getElementById(`color${i}`).value = col;
+                currentColors[i] = col;
+            }
+            draw();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const scale = 10; // Zoom pour rendre les pixels visibles
+            const numCols = 7;
+            const numRows = 74;
+
+            // Pattern défini par l'utilisateur (14 lignes, 7 colonnes)
+            const patternMatrix = [
+                [1, 2, 3, 4, 3, 6, 4],
+                [1, 7, 3, 1, 3, 2, 4],
+                [6, 7, 5, 1, 5, 2, 1],
+                [6, 3, 5, 6, 5, 7, 1],
+                [2, 3, 4, 6, 4, 7, 6],
+                [2, 5, 4, 2, 4, 3, 6],
+                [7, 5, 1, 2, 1, 3, 2],
+                [7, 4, 1, 7, 1, 5, 2],
+                [3, 4, 6, 7, 6, 5, 7],
+                [3, 1, 6, 3, 6, 4, 7],
+                [5, 1, 2, 3, 2, 4, 3],
+                [5, 6, 2, 5, 2, 1, 3],
+                [4, 6, 7, 5, 7, 1, 5],
+                [4, 2, 7, 4, 7, 6, 5]
+            ];
+
+            for (let y = 0; y < numRows; y++) {
+                // On récupère la ligne correspondante dans le motif (modulo 14)
+                const rowData = patternMatrix[y % patternMatrix.length];
+
+                for (let x = 0; x < numCols; x++) {
+                    // On récupère l'index du fil (1-7) et on convertit en index tableau (0-6)
+                    let colorIndex = rowData[x] - 1;
+                    const color = currentColors[colorIndex];
+
+                    ctx.fillStyle = color;
+                    // Dessin du pixel (1x1 dans la logique, 10x10 à l'écran)
+                    ctx.fillRect(x * scale, y * scale, scale, scale);
+                }
+            }
+
+            // Ombrage cylindrique pour simuler la forme du bracelet
+            const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            grad.addColorStop(0, "rgba(0,0,0,0.1)");
+            grad.addColorStop(0.2, "rgba(0,0,0,0)");
+            grad.addColorStop(0.8, "rgba(0,0,0,0)");
+            grad.addColorStop(1, "rgba(0,0,0,0.1)");
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Mise à jour de la texture 3D
+            if (texture3D) texture3D.needsUpdate = true;
+        }
+
+        function init3D() {
+            const width = 200; 
+            const height = 740;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xffffff);
+
+            camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
+            camera.position.z = 25;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.domElement.style.borderRadius = "4px";
+            renderer.domElement.style.border = "1px solid #ccc";
+            renderer.domElement.style.cursor = "grab";
+            document.getElementById('view3d').appendChild(renderer.domElement);
+
+            // Lumières
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            dirLight.position.set(5, 5, 10);
+            scene.add(dirLight);
+
+            // Création du cylindre (Bracelet)
+            // Rayon haut, Rayon bas, Hauteur, Segments
+            const geometry = new THREE.CylinderGeometry(1.2, 1.2, 20, 64);
+            
+            texture3D = new THREE.CanvasTexture(canvas);
+            texture3D.minFilter = THREE.LinearFilter; // Pour éviter le flou pixelisé en 3D
+            
+            const material = new THREE.MeshStandardMaterial({ map: texture3D, roughness: 0.3 });
+            braceletMesh = new THREE.Mesh(geometry, material);
+            scene.add(braceletMesh);
+
+            // Contrôles de la caméra (orbite)
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; // Ajoute un effet d'inertie fluide
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false; // Empêche le déplacement latéral
+            controls.enableZoom = true; // Ré-active le zoom (molette de la souris)
+            controls.minPolarAngle = Math.PI / 2; // Bloque la vue en hauteur (Axe Y)
+            controls.maxPolarAngle = Math.PI / 2; // Bloque la vue en hauteur (Axe Y)
+            controls.minDistance = 15; // Empêche de trop zoomer
+            controls.maxDistance = 40; // Empêche de trop dézoomer
+
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update(); // Important pour que l'inertie fonctionne
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        renderLibrary();
+        init3D(); // Initialisation 3D
+        draw();
+    </script>
+</body>
+</html>
