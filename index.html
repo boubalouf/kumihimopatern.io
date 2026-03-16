@@ -192,10 +192,22 @@
 
             // Création du cylindre (Bracelet)
             // Rayon haut, Rayon bas, Hauteur, Segments
-            const geometry = new THREE.CylinderGeometry(1.2, 1.2, 20, 64);
+            const geometry = new THREE.CylinderGeometry(0.8, 0.8, 20, 64);
             
             texture3D = new THREE.CanvasTexture(canvas);
             texture3D.minFilter = THREE.LinearFilter; // Pour éviter le flou pixelisé en 3D
+
+            // Correction de l'aspect de la texture pour éviter l'étirement.
+            // On calcule le ratio pour que les "mailles" du bracelet apparaissent carrées en 3D,
+            // comme elles le sont sur le patron 2D.
+            const cylinderRadius = 0.8;
+            const cylinderHeight = 20;
+            const cylinderCircumference = 2 * Math.PI * cylinderRadius;
+            const cylinderAspect = cylinderCircumference / cylinderHeight;
+            const textureAspect = canvas.width / canvas.height;
+            const repeatY = cylinderAspect / textureAspect;
+            texture3D.wrapT = THREE.RepeatWrapping;
+            texture3D.repeat.set(1, repeatY);
             
             const material = new THREE.MeshStandardMaterial({ map: texture3D, roughness: 0.3 });
             braceletMesh = new THREE.Mesh(geometry, material);
