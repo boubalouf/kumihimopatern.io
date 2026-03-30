@@ -2,25 +2,36 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kumihimo Designer - Pattern</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; padding: 20px; }
-        .container { display: flex; gap: 40px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .controls { display: flex; flex-direction: column; gap: 10px; }
-        .color-row { display: flex; align-items: center; gap: 12px; background: #f8f9fa; padding: 8px; border-radius: 10px; border: 1px solid #ddd; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; padding: 10px; margin: 0; }
+        h1 { font-size: 1.5rem; text-align: center; margin: 15px 0; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 1000px; box-sizing: border-box; }
+        .controls { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 300px; }
+        .color-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8f9fa; padding: 8px 12px; border-radius: 10px; border: 1px solid #ddd; }
         input[type="color"] { border: none; width: 35px; height: 35px; cursor: pointer; background: none; }
         canvas { border-radius: 4px; background: #fff; image-rendering: pixelated; border: 1px solid #ccc; }
         button { margin-top: 20px; padding: 12px; border: none; border-radius: 8px; background: #4A90E2; color: white; cursor: pointer; font-weight: bold; }
         .library-container { margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px; }
         .library-title { font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #555; }
-        .library-list { display: grid; grid-template-columns: repeat(5, 32px); gap: 8px; margin-bottom: 15px; }
+        .library-list { display: grid; grid-template-columns: repeat(auto-fill, 32px); gap: 8px; margin-bottom: 15px; }
         .lib-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 2px solid #fff; transition: transform 0.1s; }
         .lib-swatch:hover { transform: scale(1.1); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
         .add-row { display: flex; gap: 10px; align-items: center; }
         .btn-small { margin-top: 0; padding: 8px 15px; background: #27ae60; flex: 1; }
-        .preview-area { display: flex; gap: 20px; align-items: flex-start; }
+        .preview-area { display: flex; gap: 15px; align-items: flex-start; justify-content: center; flex-wrap: nowrap; }
+
+        /* Adaptations Mobiles */
+        @media (max-width: 600px) {
+            .container { padding: 15px; border-radius: 0; }
+            .controls { max-width: 100%; order: 2; }
+            .preview-area { order: 1; width: 100%; overflow-x: auto; padding-bottom: 10px; }
+            #view3d canvas { max-width: 100% !important; height: auto !important; max-height: 500px; }
+            canvas#kumihimoCanvas { height: 500px; width: auto; }
+        }
     </style>
 </head>
 <body>
